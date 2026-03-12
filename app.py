@@ -1,5 +1,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
+import extra_streamlit_components as stx
 import sqlite3
 import datetime
 import pandas as pd
@@ -142,11 +143,21 @@ def main():
                 </style>
             """, unsafe_allow_html=True)
     
+    # --- Cookie Manager ---
+    cookie_manager = stx.CookieManager()
+    
     # Initialize session state for login
     if 'logged_in' not in st.session_state:
         st.session_state.logged_in = False
     if 'plate' not in st.session_state:
         st.session_state.plate = ""
+        
+    # Auto-login via Cookie
+    cached_user = cookie_manager.get(cookie="auth_plate")
+    if cached_user and not st.session_state.logged_in:
+        st.session_state.logged_in = True
+        st.session_state.plate = cached_user
+        st.rerun()
         
     # --- Login / Sign Up Screen ---
     if not st.session_state.logged_in:
@@ -170,12 +181,18 @@ def main():
             with st.form("login_form"):
                 plate_input = st.text_input("License Plate", placeholder="e.g. TEST-123", key="login_plate")
                 password_input = st.text_input("Password", type="password", key="login_pass")
+                remember_me = st.checkbox("Keep me logged in for 30 days")
                 submit_button = st.form_submit_button("Login")
                 
                 if submit_button:
                     if check_login(plate_input, password_input):
                         st.session_state.logged_in = True
                         st.session_state.plate = plate_input
+                        
+                        if remember_me:
+                            # Set cookie to expire in 30 days
+                            cookie_manager.set("auth_plate", plate_input, max_age=2592000)
+                            
                         st.rerun()
                     else:
                         st.error("Invalid License Plate or Password")
@@ -303,6 +320,7 @@ def main():
         if st.button("Logout", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.plate = ""
+            cookie_manager.delete("auth_plate")
             st.rerun()
 
 if __name__ == "__main__":
