@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import extra_streamlit_components as stx
 import sqlite3
+import re
 import datetime
 import pandas as pd
 import re
@@ -9,6 +10,10 @@ import re
 # --- Configuration ---
 admin_list = ['ADMIN-1', 'ADMIN-2', 'ADMIN-3', 'ADMIN-4', 'ADMIN-5']
 DEFAULT_ADMIN_PASS = 'admin888'
+
+# Helper: normalize plate (trim & uppercase) for consistent comparisons
+def normalize_plate(plate: str) -> str:
+    return plate.strip().upper()
 
 # --- Database Setup ---
 def init_db():
@@ -48,10 +53,15 @@ def init_db():
 # --- Validation Logic ---
 def is_valid_sa_plate(plate):
     """
-    Validates a license plate against standard South Australian formats.
+    Validates a license plate against South Australian formats.
+    Admin plates bypass validation.
     """
+    norm_plate = normalize_plate(plate)
+    # Admin bypass
+    if norm_plate in [normalize_plate(p) for p in admin_list]:
+        return True
     # Remove spaces and hyphens for pattern matching
-    clean_plate = re.sub(r'[\s\-]', '', plate).upper()
+    clean_plate = re.sub(r'[\s\-]', '', norm_plate)
     
     patterns = [
         r'^S\d{3}[A-Z]{3}$',      # Auto (post-2008) e.g., S123ABC
@@ -65,18 +75,22 @@ def is_valid_sa_plate(plate):
 
 # --- DB Helper Functions ---
 def check_login(plate, password):
+    # Normalize plate for case‑insensitive matching
+    norm_plate = normalize_plate(plate)
     conn = sqlite3.connect('parking.db')
     c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE plate=? AND password=?", (plate, password))
+    c.execute("SELECT * FROM users WHERE plate=? AND password=?", (norm_plate, password))
     user = c.fetchone()
     conn.close()
     return user is not None
 
 def register_user(plate, password):
+    # Store normalized plate to keep DB consistent
+    norm_plate = normalize_plate(plate)
     conn = sqlite3.connect('parking.db')
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO users (plate, password) VALUES (?, ?)", (plate, password))
+        c.execute("INSERT INTO users (plate, password) VALUES (?, ?)", (norm_plate, password))
         conn.commit()
         success = True
     except sqlite3.IntegrityError:
@@ -165,18 +179,21 @@ def main():
     # --- Cookie Manager ---
     cookie_manager = stx.CookieManager()
     
-    # Initialize session state for login
+    # Initialize session state for login (normalize stored values)
     if 'logged_in' not in st.session_state:
         st.session_state.logged_in = False
     if 'plate' not in st.session_state:
         st.session_state.plate = ""
         
-    # Auto-login via Cookie
+    # Auto-login via Cookie (admin‑first, case‑insensitive)
     cached_user = cookie_manager.get(cookie="auth_plate")
     if cached_user and not st.session_state.logged_in:
-        st.session_state.logged_in = True
-        st.session_state.plate = cached_user
-        st.rerun()
+        norm_cached = normalize_plate(cached_user)
+        # Admins are allowed regardless of validation rules
+        if norm_cached in [normalize_plate(p) for p in admin_list] or is_valid_sa_plate(norm_cached):
+            st.session_state.logged_in = True
+            st.session_state.plate = norm_cached
+            st.rerun()
         
     # --- Login / Sign Up Screen ---
     if not st.session_state.logged_in:
@@ -204,13 +221,15 @@ def main():
                 submit_button = st.form_submit_button("Login")
                 
                 if submit_button:
-                    if check_login(plate_input, password_input):
+                    # Normalize input before checking
+                    norm_plate = normalize_plate(plate_input)
+                    if check_login(norm_plate, password_input):
                         st.session_state.logged_in = True
-                        st.session_state.plate = plate_input
+                        st.session_state.plate = norm_plate
                         
                         if remember_me:
-                            # Set cookie to expire in 30 days
-                            cookie_manager.set("auth_plate", plate_input, max_age=2592000)
+                            # Set cookie to expire in 30 days (store normalized plate)
+                            cookie_manager.set("auth_plate", norm_plate, max_age=2592000)
                             
                         st.rerun()
                     else:
@@ -228,7 +247,9 @@ def main():
                     elif not is_valid_sa_plate(new_plate):
                         st.error("⛔ Invalid Format! Please enter a valid South Australian License Plate (e.g., S123-ABC, ABC-123, AA-123A).")
                     else:
-                        if register_user(new_plate.upper(), new_password):
+                        # Store normalized plate
+                        norm_new = normalize_plate(new_plate)
+                        if register_user(norm_new, new_password):
                             st.success("Successfully registered! You can now log in.")
                         else:
                             st.error("User with this License Plate already exists.")
