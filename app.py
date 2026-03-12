@@ -4,6 +4,7 @@ import extra_streamlit_components as stx
 import sqlite3
 import datetime
 import pandas as pd
+import re
 
 # --- Configuration ---
 admin_list = ['ADMIN-1', 'ADMIN-2', 'ADMIN-3', 'ADMIN-4', 'ADMIN-5']
@@ -43,6 +44,24 @@ def init_db():
         
     conn.commit()
     conn.close()
+
+# --- Validation Logic ---
+def is_valid_sa_plate(plate):
+    """
+    Validates a license plate against standard South Australian formats.
+    """
+    # Remove spaces and hyphens for pattern matching
+    clean_plate = re.sub(r'[\s\-]', '', plate).upper()
+    
+    patterns = [
+        r'^S\d{3}[A-Z]{3}$',      # Auto (post-2008) e.g., S123ABC
+        r'^S\d{2}[A-Z]{3}$',      # Motorcycle (post-2008) e.g., S12ABC
+        r'^[A-Z]{3}\d{3}$',       # Auto (pre-2008) e.g., ABC123
+        r'^[A-Z]{2}\d{3}[A-Z]$',  # Premium e.g., AA123A
+        r'^S\d{3}TAA$',           # Trailer e.g., S123TAA
+    ]
+    
+    return any(re.match(p, clean_plate) for p in patterns)
 
 # --- DB Helper Functions ---
 def check_login(plate, password):
@@ -206,6 +225,8 @@ def main():
                 if signup_button:
                     if not new_plate or not new_password:
                         st.error("Please fill in both fields.")
+                    elif not is_valid_sa_plate(new_plate):
+                        st.error("⛔ Invalid Format! Please enter a valid South Australian License Plate (e.g., S123-ABC, ABC-123, AA-123A).")
                     else:
                         if register_user(new_plate.upper(), new_password):
                             st.success("Successfully registered! You can now log in.")
