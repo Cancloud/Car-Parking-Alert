@@ -109,7 +109,7 @@ def main():
     
     init_db()
     
-    # --- Auto-Refresh Logic (15 seconds) & Cache Bypassing ---
+    # --- Auto-Refresh Logic (30 seconds) & Cache Bypassing ---
     components.html(
         """
         <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -118,7 +118,7 @@ def main():
         <script>
         setTimeout(function() {
             window.parent.location.reload(true);
-        }, 15000);
+        }, 30000);
         </script>
         """,
         height=0
@@ -132,8 +132,8 @@ def main():
         latest_time = datetime.datetime.strptime(latest_report[2], "%Y-%m-%d %H:%M:%S")
         if (datetime.datetime.now() - latest_time).total_seconds() <= 3600:
             st.markdown(f"""
-                <div style="background-color: #ff1a1a; color: white; padding: 20px; border-radius: 12px; text-align: center; border: 3px solid darkred; animation: blinker 1.5s linear infinite; margin-bottom: 20px; box-shadow: 0px 4px 10px rgba(255,0,0,0.5);">
-                    <h2 style="margin:0; color:white; font-weight:900;">🚨 ALERT: PARKING WARDEN SPOTTED AT {latest_report[2]}!</h2>
+                <div style="background-color: #ff1a1a; color: white; padding: 25px 15px; border-radius: 12px; text-align: center; border: 4px solid darkred; animation: blinker 1.5s linear infinite; margin-bottom: 25px; box-shadow: 0px 6px 15px rgba(255,0,0,0.6); width: 100%; box-sizing: border-box;">
+                    <h2 style="margin:0; color:white; font-weight:900; font-size: 1.8rem; line-height: 1.3;">🚨 ALERT:<br>PARKING WARDEN SPOTTED AT<br>{latest_report[2]}!</h2>
                 </div>
                 <style>
                 @keyframes blinker {{
@@ -152,6 +152,17 @@ def main():
     if not st.session_state.logged_in:
         st.title("🚗 Parking Alert")
         st.write("Please log in or sign up to report or view notifications.")
+        
+        # Style the tabs to be more mobile-friendly
+        st.markdown("""
+            <style>
+            button[data-baseweb="tab"] {
+                font-size: 1.2rem;
+                padding-top: 15px;
+                padding-bottom: 15px;
+            }
+            </style>
+        """, unsafe_allow_html=True)
         
         auth_tab1, auth_tab2 = st.tabs(["Login", "Sign Up"])
         
