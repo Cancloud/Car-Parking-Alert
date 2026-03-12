@@ -1,0 +1,19 @@
+# Local SQLite Database
+*.db
+parking.db
+
+# Windows Executables
+run.bat
+
+# Python temp files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Streamlit config/cache
+.streamlit/
+
+# Virtual Environments
+venv/
+env/
+.env/
