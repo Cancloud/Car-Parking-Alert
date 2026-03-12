@@ -205,20 +205,28 @@ def main():
             with st.sidebar:
                 st.header("🛠️ Admin Tools")
                 
-                st.subheader("User Management")
+                st.subheader("User Management (Admins Only)")
                 users = get_users()
                 if users:
+                    # Creating a custom layout for each user
+                    st.markdown("---")
                     for user_tuple in users:
                         u_plate = user_tuple[0]
                         col1, col2 = st.columns([3, 1])
-                        col1.write(f"**{u_plate}**")
-                        # Prevent admins from accidentally deleting themselves or other admins easily
+                        
+                        # Display the plate name
+                        col1.markdown(f"**🚗 {u_plate}**")
+                        
+                        # Add a delete button for non-admins
                         if u_plate not in admin_list:
-                            if col2.button("❌ Del", key=f"del_{u_plate}"):
+                            if col2.button("❌ 刪除", key=f"del_user_{u_plate}"):
                                 delete_user(u_plate)
                                 st.rerun()
+                        else:
+                            col2.markdown("*Admin*")
+                        st.markdown("---")
                 else:
-                    st.info("No users.")
+                    st.info("No users found.")
                 
                 st.markdown("---")
                 st.subheader("Full History")
