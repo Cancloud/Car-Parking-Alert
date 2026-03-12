@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import sqlite3
 import datetime
 import pandas as pd
@@ -87,6 +88,13 @@ def get_users():
     conn.close()
     return users
 
+def delete_user(plate):
+    conn = sqlite3.connect('parking.db')
+    c = conn.cursor()
+    c.execute("DELETE FROM users WHERE plate=?", (plate,))
+    conn.commit()
+    conn.close()
+
 def delete_all_reports():
     conn = sqlite3.connect('parking.db')
     c = conn.cursor()
@@ -100,6 +108,36 @@ def main():
     st.set_page_config(page_title="Car Parking Notification", page_icon="🚗", layout="centered")
     
     init_db()
+    
+    # --- Auto-Refresh Logic (30 seconds) ---
+    components.html(
+        """
+        <script>
+        setTimeout(function() {
+            window.parent.location.reload();
+        }, 30000);
+        </script>
+        """,
+        height=0
+    )
+    
+    # --- Public Alert Banner (No Login Required) ---
+    recent_reports = get_reports()
+    if recent_reports:
+        # Check if the latest report is within 30 minutes
+        latest_report = recent_reports[0]
+        latest_time = datetime.datetime.strptime(latest_report[2], "%Y-%m-%d %H:%M:%S")
+        if (datetime.datetime.now() - latest_time).total_seconds() <= 1800:
+            st.markdown(f"""
+                <div style="background-color: #ff1a1a; color: white; padding: 20px; border-radius: 12px; text-align: center; border: 3px solid darkred; animation: blinker 1.5s linear infinite; margin-bottom: 20px; box-shadow: 0px 4px 10px rgba(255,0,0,0.5);">
+                    <h2 style="margin:0; color:white; font-weight:900;">🚨 ALERT: PARKING WARDEN SPOTTED AT {latest_report[2]}!</h2>
+                </div>
+                <style>
+                @keyframes blinker {{
+                    50% {{ opacity: 0.6; }}
+                }}
+                </style>
+            """, unsafe_allow_html=True)
     
     # Initialize session state for login
     if 'logged_in' not in st.session_state:
@@ -156,8 +194,15 @@ def main():
                 st.subheader("User Management")
                 users = get_users()
                 if users:
-                    df_users = pd.DataFrame(users, columns=["Plate"])
-                    st.dataframe(df_users, hide_index=True, use_container_width=True)
+                    for user_tuple in users:
+                        u_plate = user_tuple[0]
+                        col1, col2 = st.columns([3, 1])
+                        col1.write(f"**{u_plate}**")
+                        # Prevent admins from accidentally deleting themselves or other admins easily
+                        if u_plate not in admin_list:
+                            if col2.button("❌ Del", key=f"del_{u_plate}"):
+                                delete_user(u_plate)
+                                st.rerun()
                 else:
                     st.info("No users.")
                 
