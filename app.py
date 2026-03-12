@@ -109,13 +109,16 @@ def main():
     
     init_db()
     
-    # --- Auto-Refresh Logic (30 seconds) ---
+    # --- Auto-Refresh Logic (15 seconds) & Cache Bypassing ---
     components.html(
         """
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta http-equiv="Expires" content="0">
         <script>
         setTimeout(function() {
-            window.parent.location.reload();
-        }, 30000);
+            window.parent.location.reload(true);
+        }, 15000);
         </script>
         """,
         height=0
@@ -124,10 +127,10 @@ def main():
     # --- Public Alert Banner (No Login Required) ---
     recent_reports = get_reports()
     if recent_reports:
-        # Check if the latest report is within 30 minutes
+        # Check if the latest report is within 60 minutes
         latest_report = recent_reports[0]
         latest_time = datetime.datetime.strptime(latest_report[2], "%Y-%m-%d %H:%M:%S")
-        if (datetime.datetime.now() - latest_time).total_seconds() <= 1800:
+        if (datetime.datetime.now() - latest_time).total_seconds() <= 3600:
             st.markdown(f"""
                 <div style="background-color: #ff1a1a; color: white; padding: 20px; border-radius: 12px; text-align: center; border: 3px solid darkred; animation: blinker 1.5s linear infinite; margin-bottom: 20px; box-shadow: 0px 4px 10px rgba(255,0,0,0.5);">
                     <h2 style="margin:0; color:white; font-weight:900;">🚨 ALERT: PARKING WARDEN SPOTTED AT {latest_report[2]}!</h2>
